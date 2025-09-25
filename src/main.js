@@ -1,3 +1,7 @@
 import "./styles/style.scss";
+import { MusicListManager } from "./scripts/classes.js";
 
-document.querySelector("#app").innerHTML = ``;
+const musicList = document.getElementById("musicList");
+const musicListManager = new MusicListManager(musicList);
+
+musicListManager.checkListState();
