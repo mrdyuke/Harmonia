@@ -1,24 +1,40 @@
 @use "reset";
 @use "vars" as *;
-@use "mixins" as *;
 
 * {
-  color: #d4d4d4;
+  color: $color-text;
 }
 
 body {
   display: grid;
   grid-template-columns: 30vw auto;
-  background-color: #1b1b1b;
+  background-color: $color-bg-body;
   height: 100dvh;
   width: 100vw;
   user-select: none;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+#musicPlayer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(60px);
+  background-color: #000000b9;
+  > img {
+    width: 270px;
+    height: 270px;
+    border-radius: 6px;
+    border: 1px solid $color-border;
+  }
 }
 
 #musicList {
   padding: 8px;
-  background-color: #1f1f1f;
-  border-right: 1px solid #ffffff17;
+  background-color: $color-bg-list;
+  border-right: 1px solid $color-border;
   display: flex;
   gap: 8px;
   justify-content: center;
@@ -34,24 +50,26 @@ body {
   > .track {
     cursor: pointer;
     padding: 4px 0 4px 12px;
-    background-color: #292929;
+    background-color: $color-bg-track;
     border-radius: 3px;
     font-weight: 600;
     &:hover {
-      color: #7ca3f7;
-      background-color: #2e2e2e;
+      color: $color-hover-text;
+      background-color: $color-hover-bg;
     }
     &:active {
-      background-color: #7ca3f727;
+      background-color: $color-active-bg;
     }
     &-btn {
       display: flex;
       justify-content: center;
       font-weight: 600;
-      color: #d4d4d456;
+      color: $color-btn-text;
       background-color: transparent;
+      padding: 0;
+      padding-top: 8px;
       &:hover {
-        color: #7ca3f7;
+        color: $color-hover-text;
         background-color: transparent;
       }
     }
@@ -59,6 +77,6 @@ body {
 }
 
 .track-artist {
-  color: #d4d4d45b;
+  color: $color-artist-text;
   font-weight: normal;
 }
