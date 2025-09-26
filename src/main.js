@@ -4,14 +4,20 @@ import { MusicListManager } from "./scripts/classes.js";
 // import { Howl } from "howler";
 import { parseBlob } from "music-metadata";
 
+const musicStore = localforage.createInstance({
+  name: "MusicStore",
+});
+
 const musicList = document.getElementById("musicList");
-const musicListManager = new MusicListManager(musicList);
 const fileInput = document.getElementById("file-input");
+const musicListManager = new MusicListManager(musicList, musicStore, fileInput);
 
 musicListManager.checkListState();
 
-musicList.querySelector("#add-track-btn").addEventListener("click", () => {
-  fileInput.click();
+musicList.addEventListener("click", (event) => {
+  if (event.target && event.target.id === "add-track-btn") {
+    fileInput.click();
+  }
 });
 
 fileInput.addEventListener("change", async (event) => {
@@ -26,10 +32,8 @@ fileInput.addEventListener("change", async (event) => {
       console.error(`Error while reading ${file.name}:`, err);
     }
   }
-});
 
-const musicStore = localforage.createInstance({
-  name: "MusicStore",
+  window.location.reload();
 });
 
 async function saveTrack(file, metadata) {
@@ -45,5 +49,6 @@ async function saveTrack(file, metadata) {
     file,
     metadata: simplifiedMetadata,
   });
-  return console.log(`saved: ${simplifiedMetadata.title}`);
+
+  console.log(`saved: ${simplifiedMetadata.title}`);
 }
