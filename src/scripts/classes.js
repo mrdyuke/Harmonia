@@ -13,6 +13,8 @@ export class MusicListManager {
       ${Button("Add track", "add-track-btn")}
       </span>
     `;
+    } else {
+      return;
     }
   }
 }

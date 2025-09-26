@@ -36,6 +36,10 @@
   },
   "dependencies": {
     "dragula": "^3.7.3",
-    "electron-store": "^8.1.0"
+    "electron-store": "^8.1.0",
+    "howler": "^2.2.4",
+    "localforage": "^1.10.0",
+    "music-metadata": "^11.9.0",
+    "zustand": "^5.0.8"
   }
 }
