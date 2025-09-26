@@ -1,5 +1,7 @@
 import "./styles/style.scss";
+import localforage from "localforage";
 import { MusicListManager } from "./scripts/classes.js";
+// import { Howl } from "howler";
 import { parseBlob } from "music-metadata";
 
 const musicList = document.getElementById("musicList");
@@ -19,15 +21,29 @@ fileInput.addEventListener("change", async (event) => {
   for (const file of files) {
     try {
       const metadata = await parseBlob(file);
-
-      const title = metadata.common.title || "Title not found";
-      const artist = metadata.common.artist || "Artist not found";
-      const album = metadata.common.album || "Album not found";
-
-      console.log(`Файл: ${file.name}`);
-      console.log(`Title: ${title}, Artist: ${artist}, Album: ${album}`);
+      await saveTrack(file, metadata);
     } catch (err) {
       console.error(`Error while reading ${file.name}:`, err);
     }
   }
 });
+
+const musicStore = localforage.createInstance({
+  name: "MusicStore",
+});
+
+async function saveTrack(file, metadata) {
+  const id = file.name + "_" + file.size;
+
+  const simplifiedMetadata = {
+    title: metadata.common.title || file.name,
+    artist: metadata.common.artist || "Unknown",
+    album: metadata.common.album || "Unknown",
+  };
+
+  await musicStore.setItem(id, {
+    file,
+    metadata: simplifiedMetadata,
+  });
+  return console.log(`saved: ${simplifiedMetadata.title}`);
+}
