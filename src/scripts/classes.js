@@ -64,14 +64,55 @@ export class MusicSystemManager {
     this.seekTimeout = null;
     this.tracks = [];
     this.currentTrackIndex = -1;
+
+    // Новые свойства для repeat и volume
+    this.isRepeating = false;
+    this.isVolumeSliderVisible = false;
+    this.volume = 1; // громкость по умолчанию
+
+    // Храним текущий blobUrl чтобы корректно отзывать
+    this.currentBlobUrl = null;
+
+    // Элемент с контролами (DOM) — будет устанавливаться в renderControls
+    this.musicControls = null;
+
+    // Привязанный обработчик документа (чтобы можно было удалить / переустановить)
+    this._onDocumentClickBound = this._onDocumentClick.bind(this);
+  }
+
+  // Обработчик клика по документу — использует актуальные элементы из this.musicControls
+  _onDocumentClick(e) {
+    if (!this.musicControls) return;
+    const volumeBtn = this.musicControls.querySelector("#volume-btn");
+    const volumeSliderWrapper = this.musicControls.querySelector(
+      ".volume-slider-wrapper"
+    );
+
+    if (!volumeBtn || !volumeSliderWrapper) return;
+
+    // Если клик вне контейнера кнопки и вне самого слайдера — прячем
+    if (
+      !volumeBtn.contains(e.target) &&
+      !volumeSliderWrapper.contains(e.target)
+    ) {
+      this.isVolumeSliderVisible = false;
+      volumeSliderWrapper.style.display = "none";
+      volumeSliderWrapper.classList.remove("visible");
+    }
   }
 
   async renderControls(musicControls, key) {
+    // Освобождаем предыдущий cover URL если был
     if (this.currentCoverUrl) {
-      URL.revokeObjectURL(this.currentCoverUrl);
+      try {
+        URL.revokeObjectURL(this.currentCoverUrl);
+      } catch (err) {
+        // логируем для диагностики, чтобы ESLint не ругался на пустой catch
+        console.debug("revokeObjectURL error:", err);
+      }
+      this.currentCoverUrl = null;
     }
 
-    // Загружаем все треки и находим индекс текущего
     await this.loadTracks();
     this.currentTrackIndex = this.tracks.findIndex(
       (track) => track.key === key
@@ -91,10 +132,13 @@ export class MusicSystemManager {
       this.currentCoverUrl = coverUrl;
     }
 
-    document.querySelector("body").style.backgroundImage = `url("${coverUrl}")`;
+    document.querySelector("body").style.backgroundImage = `url("${
+      coverUrl || "./unknownCover.jpg"
+    }")`;
 
+    // Используем класс "visible" для управления видимостью и поддерживаем inline-style для обратной совместимости
     this.musicControls.innerHTML = `
-      <img src="${coverUrl || "/public/unknownCover.jpg"}" alt="Cover">
+      <img src="${coverUrl || "./unknownCover.jpg"}" alt="Cover">
       <div class="track-info">
         <div class="title">${track.metadata.title}</div>
         <div class="artist">${track.metadata.artist}</div>
@@ -107,17 +151,29 @@ export class MusicSystemManager {
         </div>
       </div>
       <div class="player-controls">
+        <button id="repeat-btn" class="${
+          this.isRepeating ? "active" : ""
+        }"></button>
         <button id="backward-btn"></button>
         <button id="play-pause-btn"></button>
         <button id="forward-btn"></button>
+        <div class="volume-container">
+          <button id="volume-btn"></button>
+          <div class="volume-slider-wrapper ${
+            this.isVolumeSliderVisible ? "visible" : ""
+          }" style="display: ${this.isVolumeSliderVisible ? "flex" : "none"}">
+            <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="${
+              this.volume
+            }">
+          </div>
+        </div>
       </div>
     `;
 
     this.coverImage = this.musicControls.querySelector("img");
 
-    setTimeout(() => {
-      this.setupPlayerControls();
-    }, 100);
+    // Вызовем setupPlayerControls сразу — без setTimeout
+    this.setupPlayerControls();
   }
 
   async loadTracks() {
@@ -125,14 +181,18 @@ export class MusicSystemManager {
     await this.store.iterate((value, key) => {
       this.tracks.push({ key, ...value });
     });
-    // Убираем сортировку по названию - сохраняем порядок как в хранилище
-    // Треки будут в том же порядке, что и в UI списке
   }
 
   setupPlayerControls() {
     const playPauseBtn = this.musicControls.querySelector("#play-pause-btn");
     const backwardBtn = this.musicControls.querySelector("#backward-btn");
     const forwardBtn = this.musicControls.querySelector("#forward-btn");
+    const repeatBtn = this.musicControls.querySelector("#repeat-btn");
+    const volumeBtn = this.musicControls.querySelector("#volume-btn");
+    const volumeSlider = this.musicControls.querySelector("#volume-slider");
+    const volumeSliderWrapper = this.musicControls.querySelector(
+      ".volume-slider-wrapper"
+    );
     const currentTimeEl = this.musicControls.querySelector("#current-time");
     const durationEl = this.musicControls.querySelector("#duration");
 
@@ -140,14 +200,18 @@ export class MusicSystemManager {
       !playPauseBtn ||
       !backwardBtn ||
       !forwardBtn ||
+      !repeatBtn ||
+      !volumeBtn ||
       !currentTimeEl ||
       !durationEl
     ) {
       return;
     }
 
-    playPauseBtn.style.backgroundImage = `url("/public/playButton.svg")`;
+    // Иконка play изначально
+    playPauseBtn.style.backgroundImage = `url("./playButton.svg")`;
 
+    // Play/pause управляет wavesurfer, если он есть
     playPauseBtn.addEventListener("click", () => {
       if (this.wavesurfer) {
         this.wavesurfer.playPause();
@@ -162,35 +226,55 @@ export class MusicSystemManager {
       this.playNextTrack();
     });
 
-    if (this.wavesurfer) {
-      this.wavesurfer.on("play", () => {
-        playPauseBtn.style.backgroundImage = `url("/public/pauseButton.svg")`;
-      });
+    // Обработчик для repeat — переключает state и, если есть wavesurfer, применяет
+    repeatBtn.addEventListener("click", () => {
+      this.isRepeating = !this.isRepeating;
 
-      this.wavesurfer.on("pause", () => {
-        playPauseBtn.style.backgroundImage = `url("/public/playButton.svg")`;
-      });
+      if (this.isRepeating) {
+        repeatBtn.style.backgroundImage = `url("./repeatOn.svg")`;
+        repeatBtn.classList.add("active");
+      } else {
+        repeatBtn.style.backgroundImage = `url("./repeatOff.svg")`;
+        repeatBtn.classList.remove("active");
+      }
 
-      this.wavesurfer.on("finish", () => {
-        playPauseBtn.style.backgroundImage = `url("/public/playButton.svg")`;
-        // Автоматическое переключение на следующий трек при завершении
-        setTimeout(() => {
-          this.playNextTrack();
-        }, 1000);
-      });
+      if (this.wavesurfer) {
+        this.wavesurfer.setLoop(this.isRepeating);
+      }
+    });
 
-      this.wavesurfer.on("audioprocess", () => {
+    // Обработчик для volume
+    volumeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.isVolumeSliderVisible = !this.isVolumeSliderVisible;
+
+      if (volumeSliderWrapper) {
+        if (this.isVolumeSliderVisible) {
+          volumeSliderWrapper.style.display = "flex";
+          volumeSliderWrapper.classList.add("visible");
+        } else {
+          volumeSliderWrapper.style.display = "none";
+          volumeSliderWrapper.classList.remove("visible");
+        }
+      }
+    });
+
+    // Обработчик для ползунка громкости
+    if (volumeSlider) {
+      volumeSlider.addEventListener("input", (e) => {
+        this.volume = parseFloat(e.target.value);
         if (this.wavesurfer) {
-          const currentTime = this.wavesurfer.getCurrentTime();
-          currentTimeEl.textContent = this.formatTime(currentTime);
+          this.wavesurfer.setVolume(this.volume);
         }
       });
-
-      this.wavesurfer.on("ready", () => {
-        const duration = this.wavesurfer.getDuration();
-        durationEl.textContent = this.formatTime(duration);
-      });
     }
+
+    // Удаляем предыдущий обработчик документа (если был), затем вешаем привязанный
+    document.removeEventListener("click", this._onDocumentClickBound);
+    document.addEventListener("click", this._onDocumentClickBound);
+
+    // IMPORTANT: все слушатели wavesurfer (play/pause/ready/finish/audioprocess)
+    // навешиваются теперь **внутри playTrack** на реальный экземпляр wavesurfer.
   }
 
   playPreviousTrack() {
@@ -202,6 +286,7 @@ export class MusicSystemManager {
     }
 
     const previousTrack = this.tracks[previousIndex];
+    // Сначала отрисуем контролы, затем запустим трек
     this.renderControls(this.musicControls, previousTrack.key);
     this.playTrack(previousTrack.key);
   }
@@ -223,12 +308,30 @@ export class MusicSystemManager {
     const track = await this.store.getItem(key);
     if (!track) return;
 
+    // Удаляем предыдущий плеер и отзываем прошлый blobUrl (если есть)
     if (this.wavesurfer) {
-      this.wavesurfer.destroy();
+      try {
+        this.wavesurfer.destroy();
+      } catch (err) {
+        console.debug("wavesurfer.destroy error:", err);
+      }
       this.stopAnimation();
+      if (this.currentBlobUrl) {
+        try {
+          URL.revokeObjectURL(this.currentBlobUrl);
+        } catch (err) {
+          console.debug("revokeObjectURL error:", err);
+        }
+        this.currentBlobUrl = null;
+      }
+      this.wavesurfer = null;
     }
 
+    // Создаём новый blobUrl и сохраняем его
     const blobUrl = URL.createObjectURL(track.file);
+    this.currentBlobUrl = blobUrl;
+
+    // Можно убрать задержку, оставляю минимальную для стабильности
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     this.wavesurfer = WaveSurfer.create({
@@ -247,22 +350,64 @@ export class MusicSystemManager {
       dragToSeek: true,
     });
 
-    this.wavesurfer.load(blobUrl);
+    // Навешиваем события на ТОЧНО этот экземпляр
+    // play / pause — обновляют UI кнопки
+    this.wavesurfer.on("play", () => {
+      const playPauseBtn = this.musicControls.querySelector("#play-pause-btn");
+      if (playPauseBtn)
+        playPauseBtn.style.backgroundImage = `url("./pauseButton.svg")`;
+    });
 
+    this.wavesurfer.on("pause", () => {
+      const playPauseBtn = this.musicControls.querySelector("#play-pause-btn");
+      if (playPauseBtn)
+        playPauseBtn.style.backgroundImage = `url("./playButton.svg")`;
+    });
+
+    // ready — обновляем длительность, громкость и loop, и автозапускаем
     this.wavesurfer.on("ready", () => {
-      this.wavesurfer.play();
-      this.startAnimation();
+      try {
+        this.wavesurfer.setVolume(this.volume);
+        this.wavesurfer.setLoop(this.isRepeating);
+      } catch (err) {
+        console.debug("wavesurfer ready error:", err);
+      }
 
       const duration = this.wavesurfer.getDuration();
       const durationEl = this.musicControls.querySelector("#duration");
-      if (durationEl) {
-        durationEl.textContent = this.formatTime(duration);
-      }
+      if (durationEl) durationEl.textContent = this.formatTime(duration);
+
+      // Автозапуск
+      this.wavesurfer.play();
+      this.startAnimation();
     });
 
+    // finish — переключаемся на следующий трек, или, если включён repeat, позволяем зацикливаться
     this.wavesurfer.on("finish", () => {
-      URL.revokeObjectURL(blobUrl);
       this.stopAnimation();
+
+      if (this.isRepeating) {
+        // Loop обычно сам перезапускает. На всякий случай — небольшой рестарт
+        setTimeout(() => {
+          if (this.wavesurfer) this.wavesurfer.play();
+        }, 50);
+        return;
+      }
+
+      // Не отзываем blobUrl здесь — сделаем это при создании следующего плеера
+      setTimeout(() => {
+        this.playNextTrack();
+      }, 200);
+    });
+
+    // audioprocess — обновление текущего времени
+    this.wavesurfer.on("audioprocess", () => {
+      if (this.wavesurfer) {
+        const currentTime = this.wavesurfer.getCurrentTime();
+        const currentTimeEl = this.musicControls.querySelector("#current-time");
+        if (currentTimeEl)
+          currentTimeEl.textContent = this.formatTime(currentTime);
+      }
     });
 
     this.wavesurfer.on("error", (error) => {
@@ -278,12 +423,13 @@ export class MusicSystemManager {
       this.isSeeking = false;
       if (this.wasPlaying && this.wavesurfer && !this.wavesurfer.isPlaying()) {
         setTimeout(() => {
-          if (this.wavesurfer) {
-            this.wavesurfer.play();
-          }
+          if (this.wavesurfer) this.wavesurfer.play();
         }, 50);
       }
     });
+
+    // Загружаем аудио
+    this.wavesurfer.load(blobUrl);
   }
 
   formatTime(seconds) {
@@ -354,7 +500,11 @@ export class MusicSystemManager {
 
   stopTrack() {
     if (this.wavesurfer) {
-      this.wavesurfer.stop();
+      try {
+        this.wavesurfer.stop();
+      } catch (err) {
+        console.debug("wavesurfer.stop error:", err);
+      }
       this.stopAnimation();
 
       const currentTimeEl = this.musicControls.querySelector("#current-time");
@@ -364,7 +514,7 @@ export class MusicSystemManager {
 
       const playPauseBtn = this.musicControls.querySelector("#play-pause-btn");
       if (playPauseBtn) {
-        playPauseBtn.style.backgroundImage = `url("/public/playButton.svg")`;
+        playPauseBtn.style.backgroundImage = `url("./playButton.svg")`;
       }
     }
   }

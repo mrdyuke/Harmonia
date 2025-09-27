@@ -1,11 +1,11 @@
 import { defineConfig } from "vite";
-import path from "path";
-import eslintPlugin from "vite-plugin-eslint"; // импорт плагина ESLint
+import eslintPlugin from "vite-plugin-eslint";
 
 export default defineConfig({
   root: ".",
+  base: "./", // ⚡ важно для Electron, чтобы ресурсы подключались правильно
   build: {
-    outDir: path.resolve(__dirname, "dist"),
+    outDir: "dist",
     emptyOutDir: true,
   },
   server: { port: 5173 },

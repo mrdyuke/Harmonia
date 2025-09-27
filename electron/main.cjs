@@ -9,14 +9,15 @@ function createWindow() {
       preload: path.join(__dirname, "preload.cjs"),
       nodeIntegration: true,
     },
+    icon: path.join(__dirname, "../assets/icon.ico"),
   });
 
-  mainWindow.setMenu(null); // полностью убрать меню
+  mainWindow.setMenu(null);
 
   const startUrl =
     process.env.NODE_ENV === "development"
       ? "http://localhost:5173"
-      : `file://${path.join(__dirname, "../dist/index.html")}`;
+      : `file://${path.join(__dirname, "../dist/index.html")}`; // ⚡ dist а не dist-vite
 
   mainWindow.loadURL(startUrl);
 }
