@@ -28,12 +28,15 @@ body {
     height: 270px;
     border-radius: 6px;
     border: 1px solid $color-border;
+    transition: transform 0.1s ease-out;
+    transform-origin: center;
   }
 }
 
 #musicList {
   padding: 8px;
-  background-color: $color-bg-list;
+  background-color: #181818e1;
+  backdrop-filter: blur(70px);
   border-right: 1px solid $color-border;
   display: flex;
   gap: 8px;
@@ -50,12 +53,13 @@ body {
   > .track {
     cursor: pointer;
     padding: 4px 0 4px 12px;
-    background-color: $color-bg-track;
-    border-radius: 3px;
+    background-color: #2929293d;
+    border-radius: 6px;
+    border: 1px solid #ffffff07;
     font-weight: 600;
     &:hover {
       color: $color-hover-text;
-      background-color: $color-hover-bg;
+      background-color: #272e3b79;
     }
     &:active {
       background-color: $color-active-bg;
@@ -68,8 +72,9 @@ body {
       background-color: transparent;
       padding: 0;
       padding-top: 8px;
+      border: none;
       &:hover {
-        color: $color-hover-text;
+        color: #dbdadab9;
         background-color: transparent;
       }
     }

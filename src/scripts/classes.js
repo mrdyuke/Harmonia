@@ -1,5 +1,6 @@
 import Button from "../components/Button";
-import { Howl } from "howler";
+// import { Howl } from "howler";
+import WaveSurfer from "wavesurfer.js";
 
 export class MusicListManager {
   constructor(listObject, musicStore, fileInput) {
@@ -53,6 +54,9 @@ export class MusicSystemManager {
     this.store = musicStore;
     this.currentSound = null;
     this.currentCoverUrl = null;
+    this.wavesurfer = null;
+    this.animationId = null;
+    this.coverImage = null;
   }
 
   async renderControls(musicControls, key) {
@@ -70,52 +74,110 @@ export class MusicSystemManager {
         type: track.metadata.cover.format,
       });
       coverUrl = URL.createObjectURL(blob);
-      this.currentCoverUrl = coverUrl; // Сохраняем новый URL
+      this.currentCoverUrl = coverUrl;
     }
 
     document.querySelector("body").style.backgroundImage = `url("${coverUrl}")`;
 
     this.musicControls.innerHTML = `
-      <img src="${coverUrl || "default-cover.png"}" alt="Cover">
+      <img src="${coverUrl || "/public/unknownCover.jpg"}" alt="Cover">
       <div class="track-info">
         <div class="title">${track.metadata.title}</div>
         <div class="artist">${track.metadata.artist}</div>
       </div>
+      <div id="waveform" style="width: 100%; height: 80px; margin-top: 20px;"></div>
     `;
+
+    this.coverImage = this.musicControls.querySelector("img");
   }
 
   async playTrack(key) {
     const track = await this.store.getItem(key);
     if (!track) return;
 
-    if (this.currentSound) {
-      this.currentSound.stop();
-      this.currentSound = null;
+    // Останавливаем предыдущее воспроизведение
+    if (this.wavesurfer) {
+      this.wavesurfer.destroy();
+      this.stopAnimation();
     }
 
     const blobUrl = URL.createObjectURL(track.file);
 
-    const mimeToFormat = {
-      "audio/mpeg": "mp3",
-      "audio/ogg": "ogg",
-      "audio/wav": "wav",
-      "audio/flac": "flac",
-    };
-
-    const format = mimeToFormat[track.file.type] || "mp3";
-
-    const sound = new Howl({
-      src: [blobUrl],
-      format: [format],
-      volume: 0.8,
-      onend: () => {
-        URL.revokeObjectURL(blobUrl);
-        this.currentSound = null;
-        console.log(`${track.metadata.title} закончился`);
-      },
+    // Инициализируем WaveSurfer
+    this.wavesurfer = WaveSurfer.create({
+      container: "#waveform",
+      waveColor: "#ffffff",
+      progressColor: "#1db954",
+      cursorColor: "transparent",
+      barWidth: 2,
+      barRadius: 3,
+      barGap: 2,
+      height: 80,
+      normalize: true,
+      partialRender: true,
+      interact: false, // Отключаем взаимодействие для чистого визуала
     });
 
-    sound.play();
-    this.currentSound = sound;
+    this.wavesurfer.load(blobUrl);
+
+    this.wavesurfer.on("ready", () => {
+      this.wavesurfer.play();
+      this.startAnimation();
+    });
+
+    this.wavesurfer.on("finish", () => {
+      URL.revokeObjectURL(blobUrl);
+      this.stopAnimation();
+      console.log(`${track.metadata.title} закончился`);
+    });
+  }
+
+  startAnimation() {
+    if (!this.coverImage) return;
+
+    const animate = () => {
+      if (!this.wavesurfer || this.wavesurfer.isPlaying() === false) {
+        this.animationId = requestAnimationFrame(animate);
+        return;
+      }
+
+      // Получаем текущие данные амплитуды
+      const peaks = this.wavesurfer.getDecodedData();
+      if (!peaks) {
+        this.animationId = requestAnimationFrame(animate);
+        return;
+      }
+
+      // Получаем текущую позицию воспроизведения
+      const currentTime = this.wavesurfer.getCurrentTime();
+      const duration = this.wavesurfer.getDuration();
+      const progress = currentTime / duration;
+
+      // Берем данные амплитуды для текущей позиции
+      const channelData = peaks.getChannelData(0);
+      const index = Math.floor(progress * channelData.length);
+      const amplitude = Math.abs(channelData[index] || 0);
+
+      // Преобразуем амплитуду в scale (0.95 - 1.05)
+      const scale = 0.95 + amplitude * 0.1;
+
+      // Применяем трансформацию
+      this.coverImage.style.transform = `scale(${scale})`;
+
+      this.animationId = requestAnimationFrame(animate);
+    };
+
+    animate();
+  }
+
+  stopAnimation() {
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
+
+    if (this.coverImage) {
+      this.coverImage.style.transform = "scale(1)";
+    }
   }
 }
