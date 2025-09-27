@@ -356,6 +356,7 @@ export class MusicSystemManager {
       const playPauseBtn = this.musicControls.querySelector("#play-pause-btn");
       if (playPauseBtn)
         playPauseBtn.style.backgroundImage = `url("./pauseButton.svg")`;
+      this.startAnimation();
     });
 
     this.wavesurfer.on("pause", () => {
@@ -379,7 +380,6 @@ export class MusicSystemManager {
 
       // Автозапуск
       this.wavesurfer.play();
-      this.startAnimation();
     });
 
     // finish — переключаемся на следующий трек, или, если включён repeat, позволяем зацикливаться
@@ -417,11 +417,22 @@ export class MusicSystemManager {
     this.wavesurfer.on("interaction", () => {
       this.wasPlaying = this.wavesurfer.isPlaying();
       this.isSeeking = true;
+      // Останавливаем анимацию при начале перемотки
+      if (this.coverImage) {
+        this.coverImage.style.transform = "scale(1)";
+      }
     });
 
     this.wavesurfer.on("seek", () => {
       this.isSeeking = false;
-      if (this.wasPlaying && this.wavesurfer && !this.wavesurfer.isPlaying()) {
+      // Возобновляем анимацию после завершения перемотки
+      if (this.wasPlaying && this.wavesurfer && this.wavesurfer.isPlaying()) {
+        this.startAnimation();
+      } else if (
+        this.wasPlaying &&
+        this.wavesurfer &&
+        !this.wavesurfer.isPlaying()
+      ) {
         setTimeout(() => {
           if (this.wavesurfer) this.wavesurfer.play();
         }, 50);
@@ -441,8 +452,13 @@ export class MusicSystemManager {
   startAnimation() {
     if (!this.coverImage) return;
 
+    // Останавливаем предыдущую анимацию если она есть
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+    }
+
     const animate = () => {
-      if (!this.wavesurfer || !this.wavesurfer.isPlaying() || this.isSeeking) {
+      if (!this.wavesurfer || !this.wavesurfer.isPlaying()) {
         if (this.coverImage) {
           this.coverImage.style.transform = "scale(1)";
         }
