@@ -62,7 +62,7 @@ async function saveTrack(file, metadata) {
   if (metadata.common.picture && metadata.common.picture.length > 0) {
     const picture = metadata.common.picture[0];
     coverData = {
-      data: Array.from(picture.data), // Конвертируем Uint8Array в обычный массив
+      data: Array.from(picture.data),
       format: picture.format,
     };
   }
@@ -71,7 +71,7 @@ async function saveTrack(file, metadata) {
     title: metadata.common.title || file.name,
     artist: metadata.common.artist || "Unknown",
     album: metadata.common.album || "Unknown",
-    cover: coverData, // Сохраняем данные обложки, а не URL
+    cover: coverData,
   };
 
   await musicStore.setItem(id, {
