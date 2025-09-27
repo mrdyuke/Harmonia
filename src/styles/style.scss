@@ -82,7 +82,7 @@ body {
     height: 270px;
     border-radius: 6px;
     border: 1px solid $color-border;
-    transition: transform 0.2s ease-out !important;
+    transition: transform 0.2s !important;
     transform-origin: center !important;
   }
   > .track-info {

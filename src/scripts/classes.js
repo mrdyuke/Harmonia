@@ -485,7 +485,7 @@ export class MusicSystemManager {
         const channelData = peaks.getChannelData(0);
         const index = Math.floor(progress * channelData.length);
         const amplitude = Math.abs(channelData[index] || 0);
-        const scale = 0.95 + amplitude * 0.1;
+        const scale = 0.9 + amplitude * 0.6;
 
         this.coverImage.style.transform = `scale(${scale})`;
       } catch (error) {
