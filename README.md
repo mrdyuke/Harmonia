@@ -11,7 +11,7 @@ From a technical standpoint, the application is quite simple and unlikely to com
 ## Installation
 
 **Ready-made installer** can be downloaded here:  
-[Google Drive link](https://drive.google.com/file/d/1OyaiFnDdg7nKicvjA6Oicg4tSaCYTs-s/view)
+[Last release](https://github.com/mrdyuke/Harmonia/releases) 
 
 **Web version** (may work unstable):  
 [Harmonia Web App](https://harmonia-rust.vercel.app/)
