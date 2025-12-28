@@ -11,6 +11,8 @@ This audio player is my learning project, created to practice working with **Vit
 
 From a technical standpoint, the application is quite simple and unlikely to compete with modern streaming services — the functionality here is minimal. But I decided to keep it here so that in the future I can look back at my starting point in web development and appreciate my progress.
 
+UPD: As a result, I came to the conclusion that I don't like the modern frontend and I went into backend development.
+
 ---
 
 ## Installation
